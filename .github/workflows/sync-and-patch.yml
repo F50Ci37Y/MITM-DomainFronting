@@ -1,0 +1,47 @@
+name: Sync upstream and generate custom port config
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add upstream and merge
+        run: |
+          git remote add upstream https://github.com/patterniha/MITM-DomainFronting.git
+          git fetch upstream main
+          git merge upstream/main --no-edit
+
+      - name: Generate custom port config
+        run: |
+          mkdir -p custom-configs
+          python3 -c "
+          import json
+
+          with open('Xray-config/MITM-DomainFronting.json') as f:
+              cfg = json.load(f)
+
+          for inbound in cfg['inbounds']:
+              inbound['port'] = 9999
+
+          with open('custom-configs/MITM-DomainFronting-port9999.json', 'w') as out:
+              json.dump(cfg, out, indent=2)
+          "
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom-configs/
+          git commit -m "update custom port9999 config" --allow-empty
+          git push origin main
